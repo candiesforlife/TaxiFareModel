@@ -1,4 +1,13 @@
 # imports
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder, RobustScaler
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
+
+from TaxiFareModel.encoders import  TimeFeaturesEncoder, DistanceTransformer
+from TaxiFareModel.utils import compute_rmse
+from TaxiFareModel.data import get_data, clean_data
 
 class Trainer():
     def __init__(self, X, y):
@@ -12,22 +21,67 @@ class Trainer():
 
     def set_pipeline(self):
         """defines the pipeline as a class attribute"""
-        pass
+        '''returns a pipelined model'''
+        dist_preprocess = Pipeline([
+            ('transformer',DistanceTransformer()),
+            ('scaler',RobustScaler())
+        ])
+        time_preprocess = Pipeline([
+            ('transformer',TimeFeaturesEncoder()),
+            ('encoder',OneHotEncoder(handle_unknown='ignore', sparse=False))
+        ])
+
+        time_column = ['pickup_datetime']
+        dist_columns = ['pickup_longitude', 'pickup_latitude', 'dropoff_longitude', 'dropoff_latitude']
+
+        # create preprocessing pipeline
+        preprocess = ColumnTransformer([
+            ('time', time_preprocess, time_column),
+            ('dist', dist_preprocess, dist_columns)
+        ])
+
+        self.pipeline = Pipeline([
+            ('preprocess', preprocess),
+            ('estimator', RandomForestRegressor())
+        ])
+
+        return self.pipeline
 
     def run(self):
         """set and train the pipeline"""
-        pass
+        self.set_pipeline().fit(self.X, self.y)
+        return self.pipeline
+
 
     def evaluate(self, X_test, y_test):
         """evaluates the pipeline on df_test and return the RMSE"""
-        pass
+        y_pred = self.pipeline.predict(X_test)
+        rmse = compute_rmse(y_pred, y_test)
+        #print(rmse)
+        return rmse
+
 
 
 if __name__ == "__main__":
+
     # get data
+    df = get_data(nrows=10_000)
+
     # clean data
+    df = clean_data(df)
+
     # set X and y
+    X = df.drop(columns='fare_amount')
+    y = df['fare_amount']
+
     # hold out
+    X_train, X_test, y_train, y_test = train_test_split(X,y, test_size=0.3)
+
     # train
+    pipe = Trainer(X_train, y_train)
+    pipe.run()
+
     # evaluate
-    print('TODO')
+    rmse = pipe.evaluate(X_test, y_test)
+    print(rmse)
+
