@@ -12,3 +12,4 @@ groupama/data/base_pno.*
 raw_data/
 __pycache__/
 *.egg-info/
+*.csv
